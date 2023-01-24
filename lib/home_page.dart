@@ -6,13 +6,33 @@ import 'package:geolocator/geolocator.dart';
 import 'package:geolocator_apple/geolocator_apple.dart';
 import 'package:geolocator_android/geolocator_android.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:personal_location/map_page.dart';
+import 'package:personal_location/models/locationModel.dart';
+import 'package:personal_location/repositories/Database.dart';
 
-class HomeApp extends StatelessWidget {
+class HomeApp extends StatefulWidget {
   const HomeApp({super.key});
+
+  @override
+  State<HomeApp> createState() => _HomeAppState();
+}
+
+class _HomeAppState extends State<HomeApp> {
+  late Position? location;
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    _determinePosition().then((value) {
+      location = value;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    TextEditingController controllerInput = TextEditingController();
+    final controllerInput = TextEditingController();
     return Scaffold(
         appBar: AppBar(
           backgroundColor: Colors.blueAccent.shade400,
@@ -30,7 +50,11 @@ class HomeApp extends StatelessWidget {
           child: FloatingActionButton(
             onPressed: () {
               Navigator.push(
-                  context, MaterialPageRoute(builder: (context) => MyMap()));
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => MyMap(
+                          initialPosition: LatLng(
+                              location!.latitude, location!.longitude))));
             },
             child: const Icon(
               Icons.map_outlined,
@@ -84,7 +108,10 @@ class HomeApp extends StatelessWidget {
                           backgroundColor: Colors.blueAccent,
                         ),
                         onPressed: () {
-                          getPosition();
+                          postPosition(controllerInput.text);
+                          setState(() {
+                            controllerInput.clear();
+                          });
                         },
                         child: const Icon(
                           Icons.add,
@@ -104,9 +131,12 @@ class HomeApp extends StatelessWidget {
         ));
   }
 
-  getPosition() async {
+  void postPosition(String value) async {
     Position location = await _determinePosition();
-    print(location);
+    await DBprovider.db.postLocation(LocationModel(
+        nomeMarcador: value,
+        latitude: location.latitude,
+        longitude: location.longitude));
   }
 
   Future<Position> _determinePosition() async {
@@ -143,6 +173,7 @@ class HomeApp extends StatelessWidget {
 
     // When we reach here, permissions are granted and we can
     // continue accessing the position of the device.
-    return await Geolocator.getCurrentPosition();
+    return await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high);
   }
 }
